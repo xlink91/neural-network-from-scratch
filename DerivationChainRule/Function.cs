@@ -23,6 +23,11 @@ public record Function
         Operator = Op.Scalar;
         Scalar = scalar;
     }
+    protected Function(Op op, Function inner)
+    {
+        Operator = op;
+        Left = inner;
+    }
     public static Function Create(Placeholder placeholder)
     {
         return new Function(placeholder);
@@ -30,6 +35,22 @@ public record Function
     public static Function Create(Scalar scalar)
     {
         return new Function(scalar);
+    }
+    public static Function Sin(Function inner)
+    {
+        return new Function(Op.Sin, inner);
+    }
+    public static Function Cos(Function inner)
+    {
+        return new Function(Op.Cos, inner);
+    }
+    public static Function Exp(Function inner)
+    {
+        return new Function(Op.Exp, inner);
+    }
+    public static Function Ln(Function inner)
+    {
+        return new Function(Op.Ln, inner);
     }
     public Scalar Evaluate(Placeholder.Placeholders placeholders)
     {
@@ -41,6 +62,10 @@ public record Function
             Op.Divide => Left.Evaluate(placeholders) / Right.Evaluate(placeholders),
             Op.PlaceHolder => placeholders[Placeholder.Identifier],
             Op.Scalar => Scalar,
+            Op.Sin => Scalar.Sin(Left.Evaluate(placeholders)),
+            Op.Cos => Scalar.Cos(Left.Evaluate(placeholders)),
+            Op.Exp => Scalar.Exp(Left.Evaluate(placeholders)),
+            Op.Ln => Scalar.Ln(Left.Evaluate(placeholders)),
             _ => throw new Exception("Invalid operator")
         };
     }
@@ -67,7 +92,11 @@ public record Function
         Multiply,
         Divide,
         PlaceHolder,
-        Scalar
+        Scalar,
+        Sin,
+        Cos,
+        Exp,
+        Ln
     }
 
     public override string ToString()
@@ -91,7 +120,7 @@ public record Function
         }
         if (function.Operator == Op.Subtract)
         {
-            return "(" + FunctionToString(function.Left) + " + " + FunctionToString(function.Right) + ")";
+            return "(" + FunctionToString(function.Left) + " - " + FunctionToString(function.Right) + ")";
         }
         if (function.Operator == Op.Multiply)
         {
@@ -100,6 +129,22 @@ public record Function
         if (function.Operator == Op.Divide)
         {
             return "(" + FunctionToString(function.Left) + " / " + FunctionToString(function.Right) + ")";
+        }
+        if (function.Operator == Op.Sin)
+        {
+            return "sin(" + FunctionToString(function.Left) + ")";
+        }
+        if (function.Operator == Op.Cos)
+        {
+            return "cos(" + FunctionToString(function.Left) + ")";
+        }
+        if (function.Operator == Op.Exp)
+        {
+            return "exp(" + FunctionToString(function.Left) + ")";
+        }
+        if (function.Operator == Op.Ln)
+        {
+            return "ln(" + FunctionToString(function.Left) + ")";
         }
         throw new Exception("Invalid operator");
     }
@@ -134,6 +179,22 @@ public record Scalar
     }
     public static Scalar Zero => new Scalar(0);
     public static Scalar One => new Scalar(1);
+    public static Scalar Sin(Scalar s)
+    {
+        return new Scalar { Value = (decimal)Math.Sin((double)s.Value) };
+    }
+    public static Scalar Cos(Scalar s)
+    {
+        return new Scalar { Value = (decimal)Math.Cos((double)s.Value) };
+    }
+    public static Scalar Exp(Scalar s)
+    {
+        return new Scalar { Value = (decimal)Math.Exp((double)s.Value) };
+    }
+    public static Scalar Ln(Scalar s)
+    {
+        return new Scalar { Value = (decimal)Math.Log((double)s.Value) };
+    }
 }
 
 public sealed record Placeholder

@@ -30,9 +30,27 @@ public class Derivative
                 return DeriveVariable();
             case Function.Op.Scalar:
                 return DeriveConstant();
+            case Function.Op.Sin:
+            case Function.Op.Cos:
+            case Function.Op.Exp:
+            case Function.Op.Ln:
+                return DeriveUnary(function);
             default:
                 throw new Exception("Unknown operator: " + function.Operator);
         }
+    }
+
+    private static Function DeriveUnary(Function function)
+    {
+        return function.Operator switch
+        {
+            // chain rule: (f(g(x)))' = f'(g(x)) * g'(x)
+            Function.Op.Sin => Function.Cos(function.Left) * Derive(function.Left),
+            Function.Op.Cos => (Function.Create(Scalar.Zero) - Function.Sin(function.Left)) * Derive(function.Left),
+            Function.Op.Exp => Function.Exp(function.Left) * Derive(function.Left),
+            Function.Op.Ln => Derive(function.Left) / function.Left,
+            _ => throw new Exception("Expected unary operator, received " + function.Operator)
+        };
     }
 
     private static Function DeriveDivide(Function function)
