@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\DerivationChainRule.Functions\DerivationChainRule.Functions.csproj" />
       <ProjectReference Include="..\DerivationChainRule\DerivationChainRule.csproj" />
     </ItemGroup>
 

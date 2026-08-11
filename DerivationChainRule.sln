@@ -4,6 +4,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerivationChainRule", "Deri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerivationChainRule.UnitTests", "DerivationChainRule.UnitTests\DerivationChainRule.UnitTests.csproj", "{A7E498DC-A028-472F-850E-A7C1618330C3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerivationChainRule.NumericalMethods", "DerivationChainRule.NumericalMethods\DerivationChainRule.NumericalMethods.csproj", "{CCBC8C14-315E-4C3F-BB85-AAC5349F4425}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerivationChainRule.NumericalMethods.UnitTests", "DerivationChainRule.NumericalMethods.UnitTests\DerivationChainRule.NumericalMethods.UnitTests.csproj", "{37A795E5-4177-4893-82CB-2ECED2D76767}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerivationChainRule.Functions", "DerivationChainRule.Functions\DerivationChainRule.Functions.csproj", "{3204D81F-B5C7-4C90-AE4A-60DF393711D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +24,17 @@ Global
 		{A7E498DC-A028-472F-850E-A7C1618330C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7E498DC-A028-472F-850E-A7C1618330C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7E498DC-A028-472F-850E-A7C1618330C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCBC8C14-315E-4C3F-BB85-AAC5349F4425}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCBC8C14-315E-4C3F-BB85-AAC5349F4425}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCBC8C14-315E-4C3F-BB85-AAC5349F4425}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCBC8C14-315E-4C3F-BB85-AAC5349F4425}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37A795E5-4177-4893-82CB-2ECED2D76767}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37A795E5-4177-4893-82CB-2ECED2D76767}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37A795E5-4177-4893-82CB-2ECED2D76767}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37A795E5-4177-4893-82CB-2ECED2D76767}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3204D81F-B5C7-4C90-AE4A-60DF393711D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3204D81F-B5C7-4C90-AE4A-60DF393711D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3204D81F-B5C7-4C90-AE4A-60DF393711D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3204D81F-B5C7-4C90-AE4A-60DF393711D0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
