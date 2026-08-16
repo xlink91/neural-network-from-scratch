@@ -1,23 +1,22 @@
 ﻿using DerivationChainRule;
 using Serilog;
-using Placeholders = DerivationChainRule.Placeholder.Placeholders;
 
 namespace NumericalMethods;
 
 public class GradientDescend
 {
     private Function _function;
-    private Placeholders _placeholders;
+    private Placeholder _x;
     private decimal _learningRate = 0.00001m;
     public int Epochs { get; private set; }
     public const decimal Threshold = 0.0001m;
     private const decimal _frictionVelocity = 0.9m;
 
     private readonly ILogger? _logger;
-    public GradientDescend(Function function, Placeholders placeholders, int epochs = 1_000, ILogger? logger = null)
+    public GradientDescend(Function function, int epochs = 1_000, ILogger? logger = null)
     {
         _function = function;
-        _placeholders = placeholders;
+        _x = function.Params.First(p => p.Identifier == "x");
         Epochs = epochs;
         _logger = logger;
     }
@@ -34,13 +33,13 @@ public class GradientDescend
 
     private Scalar GradientDescentRaw()
     {
-        var derivative = new Derivative(_function, _placeholders);
-        Function df = derivative.Derive();
+        var derivative = new Derivative(_function);
+        Function df = derivative.Derive(_x);
         decimal argument = 0;
         for (int i = 0; i < Epochs; i++)
         {
-            _placeholders["x"] = Scalar.Create(argument);
-            var gradient = df.Evaluate(_placeholders).Value;
+            _x.Scalar = Scalar.Create(argument);
+            var gradient = df.Evaluate().Value;
             _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, argument={Argument}", i, gradient, argument);
             if (Math.Abs(gradient) < Threshold)
             {
@@ -53,14 +52,14 @@ public class GradientDescend
 
     private Scalar GradientDescentMomentum()
     {
-        var derivative = new Derivative(_function, _placeholders);
-        Function df = derivative.Derive();
+        var derivative = new Derivative(_function);
+        Function df = derivative.Derive(_x);
         decimal argument = 0;
         decimal velocity = Threshold;
         for (int i = 0; i < Epochs; i++)
         {
-            _placeholders["x"] = Scalar.Create(argument);
-            var gradient = df.Evaluate(_placeholders).Value;
+            _x.Scalar = Scalar.Create(argument);
+            var gradient = df.Evaluate().Value;
             _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, argument={Argument}", i, gradient, argument);
             if (Math.Abs(gradient) < Threshold)
             {

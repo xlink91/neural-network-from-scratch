@@ -2,10 +2,18 @@ namespace DerivationChainRule;
 
 public record Function
 {
-    public Function Left { get; private set; }
-    public Function Right { get; private set; }
+    public Function? Left { get; private set; }
+    public Function? Right { get; private set; }
     public Op Operator { get; private set; }
     public Placeholder Placeholder { get; private set; }
+    private Placeholder[] _parameters;
+    public Placeholder[] Params
+    {
+        get
+        {
+            return _parameters = _parameters ?? GetParams();
+        }
+    }
     public Scalar Scalar { get; private set; }
     protected Function(Op op, Function left, Function right)
     {
@@ -52,22 +60,35 @@ public record Function
     {
         return new Function(Op.Ln, inner);
     }
-    public Scalar Evaluate(Placeholder.Placeholders placeholders)
+    public Scalar Evaluate()
     {
+        ThrowIfDuplicateParameters();
         return Operator switch
         {
-            Op.Add => Left.Evaluate(placeholders) + Right.Evaluate(placeholders),
-            Op.Subtract => Left.Evaluate(placeholders) - Right.Evaluate(placeholders),
-            Op.Multiply => Left.Evaluate(placeholders) * Right.Evaluate(placeholders),
-            Op.Divide => Left.Evaluate(placeholders) / Right.Evaluate(placeholders),
-            Op.PlaceHolder => placeholders[Placeholder.Identifier],
+            Op.Add => Left.Evaluate() + Right.Evaluate(),
+            Op.Subtract => Left.Evaluate() - Right.Evaluate(),
+            Op.Multiply => Left.Evaluate() * Right.Evaluate(),
+            Op.Divide => Left.Evaluate() / Right.Evaluate(),
+            Op.PlaceHolder => Placeholder.Scalar,
             Op.Scalar => Scalar,
-            Op.Sin => Scalar.Sin(Left.Evaluate(placeholders)),
-            Op.Cos => Scalar.Cos(Left.Evaluate(placeholders)),
-            Op.Exp => Scalar.Exp(Left.Evaluate(placeholders)),
-            Op.Ln => Scalar.Ln(Left.Evaluate(placeholders)),
+            Op.Sin => Scalar.Sin(Left.Evaluate()),
+            Op.Cos => Scalar.Cos(Left.Evaluate()),
+            Op.Exp => Scalar.Exp(Left.Evaluate()),
+            Op.Ln => Scalar.Ln(Left.Evaluate()),
             _ => throw new Exception("Invalid operator")
         };
+    }
+
+    private void ThrowIfDuplicateParameters()
+    {
+        var duplicate = GetIndependentVariables(this)
+            .GroupBy(p => p.Identifier)
+            .FirstOrDefault(g => g.Distinct(ReferenceEqualityComparer.Instance).Count() > 1);
+        if (duplicate != null)
+        {
+            throw new Exception(
+                $"Parameter '{duplicate.Key}' has multiple distinct placeholder instances in this function tree.");
+        }
     }
     public static Function operator +(Function left, Function right)
     {
@@ -98,12 +119,10 @@ public record Function
         Exp,
         Ln
     }
-
     public override string ToString()
     {
         return "f = " + FunctionToString(this);
     }
-
     private string FunctionToString(Function function)
     {
         if (function.Operator == Op.Scalar)
@@ -147,6 +166,29 @@ public record Function
             return "ln(" + FunctionToString(function.Left) + ")";
         }
         throw new Exception("Invalid operator");
+    }
+
+    private Placeholder[] GetParams()
+    {
+        return GetIndependentVariables(this).DistinctBy(p => p.Identifier).ToArray();
+    }
+
+    private IEnumerable<Placeholder> GetIndependentVariables(Function function)
+    {
+        Queue<Function> functionsQueue = new Queue<Function>();
+        functionsQueue.Enqueue(function);
+        while (functionsQueue.Count != 0)
+        {
+            Function topFunction = functionsQueue.Dequeue();
+            if(topFunction.Operator == Op.PlaceHolder)
+            {
+                yield return topFunction.Placeholder;
+            }
+            if(topFunction.Left != null)
+                functionsQueue.Enqueue(topFunction.Left);
+            if(topFunction.Right != null)
+                functionsQueue.Enqueue(topFunction.Right);
+        }
     }
 }
 
@@ -206,44 +248,8 @@ public sealed record Placeholder
     {
         Identifier = identifier;
     }
-    private  static Placeholder Create(string identifier)
+    public  static Placeholder Create(string identifier)
     {
         return new Placeholder(identifier);
-    }
-    public class Placeholders
-    {
-        private Dictionary<string, Placeholder> Functions { get; set; }
-        public Placeholders()
-        {
-            Functions = new Dictionary<string, Placeholder>();
-        }
-        public Placeholder Create(string identifier)
-        {
-            var placeholder = new Placeholder(identifier);
-            return CreatePlaceholderEntry(placeholder);
-        }
-        private Placeholder CreatePlaceholderEntry(Placeholder placeholder)
-        {
-            return Functions.TryAdd(placeholder.Identifier, placeholder) 
-                ? placeholder 
-                : throw new Exception("Placeholder entry already exists: " + placeholder.Identifier + ".");
-        }
-
-        private Placeholder Get(string identifier)
-        {
-            return !Functions.TryGetValue(identifier, out var function)
-                ? throw new Exception("Placeholder entry does not exists: " + identifier)
-                : function;
-        }
-        
-        public Scalar this[string name]
-        {
-            get => Get(name).Scalar;
-            set
-            {
-                Placeholder placeholder = Get(name);
-                placeholder.Scalar = value;
-            }
-        }
     }
 }
