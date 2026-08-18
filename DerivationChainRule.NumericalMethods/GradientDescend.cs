@@ -1,4 +1,5 @@
-﻿using DerivationChainRule;
+﻿using System.Runtime.CompilerServices;
+using DerivationChainRule;
 using Serilog;
 
 namespace NumericalMethods;
@@ -18,6 +19,45 @@ public class GradientDescend
         Epochs = epochs;
         _logger = logger;
     }
+
+    public Placeholder[] Train(TrainingData data)
+    {
+        foreach (var placeholder in _function.Params)
+        {
+            if (!data.Contains(placeholder))
+            {
+                placeholder.Scalar = (decimal)Random.Shared.NextDouble() + 1e-10m;
+            }
+        }
+        for (int i = 0; i < Epochs; i++)
+        {
+            decimal maxDerivative = decimal.MinValue;
+            foreach (Placeholder arg in _function.Params)
+            {
+                if(data.Contains(arg))
+                {
+                    continue;
+                }
+                decimal gradientArg = 0m;
+                foreach (TrainingEntry entry in data.Entries)
+                {
+                    Function smm = (Function.Create(entry.DependentVariable) - _function) * (Function.Create(entry.DependentVariable) - _function) * Function.Create(1.0m/data.Entries.Count);
+                    entry.IndependentVariables.ToList().ForEach(x => x.Item1.Scalar = x.Item2);
+                    var derivative = new Derivative(smm);
+                    var df = derivative.Derive(arg);
+                    gradientArg += df.Evaluate().Value;
+                }
+                arg.Scalar -= gradientArg * _learningRate;
+                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", i, gradientArg, arg.Identifier, arg.Scalar.Value);
+                maxDerivative = Math.Max(maxDerivative, Math.Abs(gradientArg));
+            }
+            if (Math.Abs(maxDerivative) < Threshold)
+            {
+                break;
+            }
+        }
+        return _function.Params.ToArray();
+    }
     
     public Placeholder[] GetMinimun(GradienDescentAlgorithm algorithm = GradienDescentAlgorithm.GradientDescent)
     {
@@ -27,7 +67,7 @@ public class GradientDescend
             return GradientDescentMomentum();
         throw new NotImplementedException($"Algorithm {algorithm} not implemented");
     }
-
+    
     private Placeholder[] GradientDescentRaw()
     {
         var derivative = new Derivative(_function);
@@ -118,5 +158,43 @@ public class GradientDescend
     {
         GradientDescent,
         GradientDescentMomentum
+    }
+}
+
+public class TrainingEntry
+{
+    public decimal DependentVariable { get; set; }
+    public (Placeholder, Scalar)[] IndependentVariables { get; set; }
+
+    public static TrainingEntry Create(decimal dependentVariable, (Placeholder, Scalar)[] dependentVariables)
+    {
+        return new TrainingEntry
+        {
+            DependentVariable = dependentVariable,
+            IndependentVariables = dependentVariables
+        };
+    }
+}
+
+public class TrainingData
+{
+    public List<TrainingEntry> Entries { get; private set; } = new List<TrainingEntry>();
+    HashSet<Placeholder> _placeholders = new HashSet<Placeholder>();
+    public static TrainingData Create()
+    {
+        return new();
+    }
+    public TrainingData Add(TrainingEntry entry)
+    {
+        Entries.Add(entry);
+        foreach (var (placeholder, _) in entry.IndependentVariables)
+        {
+            _placeholders.Add(placeholder);
+        }
+        return this;
+    }
+    public bool Contains(Placeholder placeholder)
+    {
+        return _placeholders.Contains(placeholder);
     }
 }
