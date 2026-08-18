@@ -30,9 +30,9 @@ public class GradientDescendTests
         Function y = (a*x+b)*(a*x+b);
         //Act
         GradientDescend gradientDescend = new GradientDescend(y, epochs: 1000_000, logger: _logger);
-        Scalar min = gradientDescend.GetMinimun(algorithm);
+        Placeholder[] min = gradientDescend.GetMinimun(algorithm);
         //Assert
-        Assert.True(Math.Abs(-0.5m - min.Value) < GradientDescend.Threshold);
+        Assert.True(Math.Abs(-0.5m - min[0].Scalar.Value) < GradientDescend.Threshold);
         xPlaceholder.Scalar = Scalar.Create(-0.5m);
         Assert.True(y.Evaluate().Value < GradientDescend.Threshold);
     }
@@ -50,10 +50,41 @@ public class GradientDescendTests
         Function o = Function.Create(121);
         Function l = (o - y) * (o - y);
         GradientDescend gradientDescend = new GradientDescend(l, logger: _logger);
-        Scalar min = gradientDescend.GetMinimun();
+        Placeholder[] min = gradientDescend.GetMinimun();
         //Assert
-        Assert.True(Math.Abs(5m - min.Value) < GradientDescend.Threshold);
+        Assert.True(Math.Abs(5m - min[0].Scalar.Value) < GradientDescend.Threshold);
         xPlaceholder.Scalar = Scalar.Create(5m);
+        Assert.True(l.Evaluate().Value < GradientDescend.Threshold);
+    }
+    
+    [Fact]
+    public void GetMinimun_Of_Lost_Function_To_Train_A_Function()
+    {
+        //Arrange
+        string functionStr = "w*x+d";
+        Function line = MathUtil.Translate(functionStr);
+        Function o = Function.Create(1);
+        Function l =  (o - line) * (o - line);
+        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(1m);
+        GradientDescend gradientDescend = new GradientDescend(l, epochs: 1_000_000);
+        //Act
+        _ = gradientDescend.GetMinimun();
+        Assert.True(l.Evaluate().Value < GradientDescend.Threshold);
+    }
+    
+    [Fact]
+    public void GetMinimun_Of_Lost_Function_To_Train_A_Quadratic_Function()
+    {
+        //Arrange
+        decimal y_value = 5;
+        string functionStr = "x*x+d";
+        Function line = MathUtil.Translate(functionStr);
+        Function o = Function.Create(y_value);
+        Function l =  (o - line) * (o - line);
+        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(2m);
+        GradientDescend gradientDescend = new GradientDescend(l, epochs: 1_000_000);
+        //Act
+        _ = gradientDescend.GetMinimun();
         Assert.True(l.Evaluate().Value < GradientDescend.Threshold);
     }
 }

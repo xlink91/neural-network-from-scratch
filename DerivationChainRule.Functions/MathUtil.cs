@@ -1,4 +1,4 @@
-namespace DerivationChainRule.UnitTests;
+namespace DerivationChainRule;
 
 public static class MathUtil
 {

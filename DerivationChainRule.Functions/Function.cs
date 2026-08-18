@@ -242,7 +242,7 @@ public record Scalar
 public sealed record Placeholder
 {
     public string Identifier { get; private set; }
-    public  Scalar Scalar { get; set; }
+    public  Scalar? Scalar { get; set; }
     
     protected Placeholder(string identifier)
     {
