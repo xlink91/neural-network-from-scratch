@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace DerivationChainRule;
 
 public static class MathUtil
@@ -12,7 +14,7 @@ public static class MathUtil
     {
         if (exp is ScalarExp scalarExp)
         {
-            return Function.Create(Scalar.Create(decimal.Parse(scalarExp.Value)));
+            return Function.Create(Scalar.Create(double.Parse(scalarExp.Value, CultureInfo.InvariantCulture)));
         }
         if (exp is VariableExp variableExp)
         {

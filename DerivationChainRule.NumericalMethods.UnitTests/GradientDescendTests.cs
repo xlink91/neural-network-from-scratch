@@ -32,8 +32,8 @@ public class GradientDescendTests
         GradientDescend gradientDescend = new GradientDescend(y, epochs: 1000_000, logger: _logger);
         Placeholder[] min = gradientDescend.GetMinimun(algorithm);
         //Assert
-        Assert.True(Math.Abs(-0.5m - min[0].Scalar.Value) < GradientDescend.Threshold);
-        xPlaceholder.Scalar = Scalar.Create(-0.5m);
+        Assert.True(Math.Abs(-0.5 - min[0].Scalar.Value.Value) < GradientDescend.Threshold);
+        xPlaceholder.Scalar = Scalar.Create(-0.5);
         Assert.True(y.Evaluate().Value < GradientDescend.Threshold);
     }
 
@@ -52,8 +52,8 @@ public class GradientDescendTests
         GradientDescend gradientDescend = new GradientDescend(l, logger: _logger);
         Placeholder[] min = gradientDescend.GetMinimun();
         //Assert
-        Assert.True(Math.Abs(5m - min[0].Scalar.Value) < GradientDescend.Threshold);
-        xPlaceholder.Scalar = Scalar.Create(5m);
+        Assert.True(Math.Abs(5 - min[0].Scalar.Value.Value) < GradientDescend.Threshold);
+        xPlaceholder.Scalar = Scalar.Create(5);
         Assert.True(l.Evaluate().Value < GradientDescend.Threshold);
     }
     
@@ -65,7 +65,7 @@ public class GradientDescendTests
         Function line = MathUtil.Translate(functionStr);
         Function o = Function.Create(1);
         Function l =  (o - line) * (o - line);
-        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(1m);
+        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(1);
         GradientDescend gradientDescend = new GradientDescend(l, epochs: 1_000_000);
         //Act
         _ = gradientDescend.GetMinimun();
@@ -76,12 +76,12 @@ public class GradientDescendTests
     public void GetMinimun_Of_Lost_Function_To_Train_A_Quadratic_Function()
     {
         //Arrange
-        decimal y_value = 5;
+        double y_value = 5;
         string functionStr = "x*x+d";
         Function line = MathUtil.Translate(functionStr);
         Function o = Function.Create(y_value);
         Function l =  (o - line) * (o - line);
-        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(2m);
+        line.Params.First(x => x.Identifier == "x").Scalar = Scalar.Create(2);
         GradientDescend gradientDescend = new GradientDescend(l, epochs: 1_000_000);
         //Act
         _ = gradientDescend.GetMinimun();
@@ -106,17 +106,17 @@ public class GradientDescendTests
             .Add(TrainingEntry.Create(8, [(xPlaceHolder, 8)]))
             .Add(TrainingEntry.Create(9, [(xPlaceHolder, 9)]))
             .Add(TrainingEntry.Create(10, [(xPlaceHolder, 10)]));
-        GradientDescend gradientDescend = new GradientDescend(line, epochs: 1_000_000);
+        GradientDescend gradientDescend = new GradientDescend(line, epochs: 10_000_000);
         //Act
         var placeholders = gradientDescend.Train(trainingSet);
         foreach (var placeholder in placeholders)
         {
-            _logger.Information(placeholder.Identifier + ": "  + placeholder.Scalar.Value);
+            _logger.Information(placeholder.Identifier + ": "  + placeholder.Scalar.Value.Value);
         }
         foreach(var entry in trainingSet.Entries)
         {
             xPlaceHolder.Scalar = entry.IndependentVariables[0].Item2;
-            Assert.True(Math.Abs(line.Evaluate().Value - entry.DependentVariable) < 0.5m);
+            Assert.True(Math.Abs(line.Evaluate().Value - entry.DependentVariable) < 0.5);
         }
     }
 }

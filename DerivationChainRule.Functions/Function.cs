@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace DerivationChainRule;
 
 public record Function
@@ -7,6 +9,7 @@ public record Function
     public Op Operator { get; private set; }
     public Placeholder Placeholder { get; private set; }
     private Placeholder[] _parameters;
+    private string? _duplicateParameterIdentifier;
     public Placeholder[] Params
     {
         get
@@ -63,32 +66,55 @@ public record Function
     public Scalar Evaluate()
     {
         ThrowIfDuplicateParameters();
+        return EvaluateCore();
+    }
+
+    // Recursion goes through this method so the duplicate-parameter validation runs once at
+    // the root instead of once per node (which made evaluation O(n^2)).
+    private Scalar EvaluateCore()
+    {
         return Operator switch
         {
-            Op.Add => Left.Evaluate() + Right.Evaluate(),
-            Op.Subtract => Left.Evaluate() - Right.Evaluate(),
-            Op.Multiply => Left.Evaluate() * Right.Evaluate(),
-            Op.Divide => Left.Evaluate() / Right.Evaluate(),
-            Op.PlaceHolder => Placeholder.Scalar,
+            Op.Add => Left.EvaluateCore() + Right.EvaluateCore(),
+            Op.Subtract => Left.EvaluateCore() - Right.EvaluateCore(),
+            Op.Multiply => Left.EvaluateCore() * Right.EvaluateCore(),
+            Op.Divide => Left.EvaluateCore() / Right.EvaluateCore(),
+            Op.PlaceHolder => Placeholder.Scalar ?? throw new Exception(
+                $"Parameter '{Placeholder.Identifier}' has no value assigned."),
             Op.Scalar => Scalar,
-            Op.Sin => Scalar.Sin(Left.Evaluate()),
-            Op.Cos => Scalar.Cos(Left.Evaluate()),
-            Op.Exp => Scalar.Exp(Left.Evaluate()),
-            Op.Ln => Scalar.Ln(Left.Evaluate()),
+            Op.Sin => Scalar.Sin(Left.EvaluateCore()),
+            Op.Cos => Scalar.Cos(Left.EvaluateCore()),
+            Op.Exp => Scalar.Exp(Left.EvaluateCore()),
+            Op.Ln => Scalar.Ln(Left.EvaluateCore()),
             _ => throw new Exception("Invalid operator")
         };
     }
 
-    private void ThrowIfDuplicateParameters()
+    // The duplicate check is computed once during the Params walk and cached; the tree
+    // structure is immutable after construction, so the cached result stays valid.
+    internal void ThrowIfDuplicateParameters()
     {
-        var duplicate = GetIndependentVariables(this)
-            .GroupBy(p => p.Identifier)
-            .FirstOrDefault(g => g.Distinct(ReferenceEqualityComparer.Instance).Count() > 1);
-        if (duplicate != null)
+        _ = Params;
+        if (_duplicateParameterIdentifier != null)
         {
             throw new Exception(
-                $"Parameter '{duplicate.Key}' has multiple distinct placeholder instances in this function tree.");
+                $"Parameter '{_duplicateParameterIdentifier}' has multiple distinct placeholder instances in this function tree.");
         }
+    }
+
+    // Reverse-mode differentiation: one forward + one backward pass over the tree yields the
+    // value and ALL partial derivatives at once. For repeated gradient computations (training
+    // loops) construct a GradientTape directly and reuse it instead of calling this.
+    public (double Value, Dictionary<Placeholder, double> Gradients) Backpropagate()
+    {
+        GradientTape tape = new GradientTape(this);
+        double value = tape.Compute();
+        Dictionary<Placeholder, double> gradients = new Dictionary<Placeholder, double>(ReferenceEqualityComparer.Instance);
+        foreach (Placeholder parameter in Params)
+        {
+            gradients[parameter] = tape.Gradient(parameter);
+        }
+        return (value, gradients);
     }
     public static Function operator +(Function left, Function right)
     {
@@ -127,7 +153,7 @@ public record Function
     {
         if (function.Operator == Op.Scalar)
         {
-            return function.Scalar.Value.ToString();
+            return function.Scalar.Value.ToString(CultureInfo.InvariantCulture);
         }
         if(function.Operator == Op.PlaceHolder)
         {
@@ -170,7 +196,22 @@ public record Function
 
     private Placeholder[] GetParams()
     {
-        return GetIndependentVariables(this).DistinctBy(p => p.Identifier).ToArray();
+        Dictionary<string, Placeholder> distinct = new Dictionary<string, Placeholder>();
+        foreach (Placeholder placeholder in GetIndependentVariables(this))
+        {
+            if (distinct.TryGetValue(placeholder.Identifier, out var existing))
+            {
+                if (!ReferenceEquals(existing, placeholder))
+                {
+                    _duplicateParameterIdentifier ??= placeholder.Identifier;
+                }
+            }
+            else
+            {
+                distinct[placeholder.Identifier] = placeholder;
+            }
+        }
+        return distinct.Values.ToArray();
     }
 
     private IEnumerable<Placeholder> GetIndependentVariables(Function function)
@@ -192,59 +233,58 @@ public record Function
     }
 }
 
-public record Scalar
+public readonly record struct Scalar(double Value)
 {
-    public decimal Value { get; private set; }
-    public static Scalar Create(decimal number)
+    public static Scalar Create(double number)
     {
-        return new Scalar { Value = number };
+        return new Scalar(number);
     }
     public static Scalar operator +(Scalar left, Scalar right)
     {
-        return new Scalar { Value = left.Value + right.Value };
+        return new Scalar(left.Value + right.Value);
     }
     public static Scalar operator -(Scalar left, Scalar right)
     {
-        return new Scalar { Value = left.Value - right.Value };
+        return new Scalar(left.Value - right.Value);
     }
     public static Scalar operator *(Scalar left, Scalar right)
     {
-        return new Scalar { Value = left.Value * right.Value };
+        return new Scalar(left.Value * right.Value);
     }
     public static Scalar operator /(Scalar left, Scalar right)
     {
-        return new Scalar { Value = left.Value / right.Value };
+        return new Scalar(left.Value / right.Value);
     }
-    public static implicit operator Scalar(decimal number)
+    public static implicit operator Scalar(double number)
     {
-        return new Scalar { Value = number };
+        return new Scalar(number);
     }
     public static Scalar Zero => new Scalar(0);
     public static Scalar One => new Scalar(1);
     public static Scalar Sin(Scalar s)
     {
-        return new Scalar { Value = (decimal)Math.Sin((double)s.Value) };
+        return new Scalar(Math.Sin(s.Value));
     }
     public static Scalar Cos(Scalar s)
     {
-        return new Scalar { Value = (decimal)Math.Cos((double)s.Value) };
+        return new Scalar(Math.Cos(s.Value));
     }
     public static Scalar Exp(Scalar s)
     {
-        return new Scalar { Value = (decimal)Math.Exp((double)s.Value) };
+        return new Scalar(Math.Exp(s.Value));
     }
     public static Scalar Ln(Scalar s)
     {
-        return new Scalar { Value = (decimal)Math.Log((double)s.Value) };
+        return new Scalar(Math.Log(s.Value));
     }
 }
 
 public sealed record Placeholder
 {
     public string Identifier { get; private set; }
-    public  Scalar? Scalar { get; set; }
-    
-    protected Placeholder(string identifier)
+    public Scalar? Scalar { get; set; }
+
+    private Placeholder(string identifier)
     {
         Identifier = identifier;
     }

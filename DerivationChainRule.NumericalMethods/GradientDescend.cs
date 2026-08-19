@@ -1,4 +1,3 @@
-﻿using System.Runtime.CompilerServices;
 using DerivationChainRule;
 using Serilog;
 
@@ -7,10 +6,10 @@ namespace NumericalMethods;
 public class GradientDescend
 {
     private Function _function;
-    private decimal _learningRate = 0.00001m;
+    private double _learningRate = 0.00001;
     public int Epochs { get; private set; }
-    public const decimal Threshold = 0.0001m;
-    private const decimal _frictionVelocity = 0.9m;
+    public const double Threshold = 0.0001;
+    private const double _frictionVelocity = 0.9;
 
     private readonly ILogger? _logger;
     public GradientDescend(Function function, int epochs = 1_000, ILogger? logger = null)
@@ -20,45 +19,63 @@ public class GradientDescend
         _logger = logger;
     }
 
+    // Fits the function's free parameters to the training data by gradient descent on the
+    // mean squared error. The target value is a placeholder ("__target", reserved), so the
+    // loss tree and its gradient tape are built ONCE for the whole run; substituting a
+    // training entry is just assigning placeholder values — no tree building or
+    // re-differentiation ever happens inside the loops.
     public Placeholder[] Train(TrainingData data)
     {
-        foreach (var placeholder in _function.Params)
+        Placeholder target = Placeholder.Create("__target");
+        Function error = Function.Create(target) - _function;
+        Function loss = error * error;
+        GradientTape tape = new GradientTape(loss);
+
+        Placeholder[] parameters = _function.Params;
+        List<Placeholder> trainable = new List<Placeholder>();
+        foreach (Placeholder placeholder in parameters)
         {
             if (!data.Contains(placeholder))
             {
-                placeholder.Scalar = (decimal)Random.Shared.NextDouble() + 1e-10m;
+                placeholder.Scalar = Scalar.Create(Random.Shared.NextDouble() + 1e-10);
+                trainable.Add(placeholder);
             }
         }
-        for (int i = 0; i < Epochs; i++)
+        int entryCount = data.Entries.Count;
+        double[] accumulatedGradients = new double[trainable.Count];
+        for (int epoch = 0; epoch < Epochs; epoch++)
         {
-            decimal maxDerivative = decimal.MinValue;
-            foreach (Placeholder arg in _function.Params)
+            Array.Clear(accumulatedGradients);
+            foreach (TrainingEntry entry in data.Entries)
             {
-                if(data.Contains(arg))
+                foreach ((Placeholder input, Scalar value) in entry.IndependentVariables)
                 {
-                    continue;
+                    input.Scalar = value;
                 }
-                decimal gradientArg = 0m;
-                foreach (TrainingEntry entry in data.Entries)
+                target.Scalar = Scalar.Create(entry.DependentVariable);
+                tape.Compute();
+                for (int p = 0; p < trainable.Count; p++)
                 {
-                    Function smm = (Function.Create(entry.DependentVariable) - _function) * (Function.Create(entry.DependentVariable) - _function) * Function.Create(1.0m/data.Entries.Count);
-                    entry.IndependentVariables.ToList().ForEach(x => x.Item1.Scalar = x.Item2);
-                    var derivative = new Derivative(smm);
-                    var df = derivative.Derive(arg);
-                    gradientArg += df.Evaluate().Value;
+                    accumulatedGradients[p] += tape.Gradient(trainable[p]);
                 }
-                arg.Scalar -= gradientArg * _learningRate;
-                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", i, gradientArg, arg.Identifier, arg.Scalar.Value);
-                maxDerivative = Math.Max(maxDerivative, Math.Abs(gradientArg));
             }
-            if (Math.Abs(maxDerivative) < Threshold)
+            double maxGradient = 0;
+            for (int p = 0; p < trainable.Count; p++)
+            {
+                double gradient = accumulatedGradients[p] / entryCount;
+                Placeholder parameter = trainable[p];
+                parameter.Scalar = Scalar.Create(parameter.Scalar.Value.Value - gradient * _learningRate);
+                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", epoch, gradient, parameter.Identifier, parameter.Scalar.Value.Value);
+                maxGradient = Math.Max(maxGradient, Math.Abs(gradient));
+            }
+            if (maxGradient < Threshold)
             {
                 break;
             }
         }
-        return _function.Params.ToArray();
+        return parameters;
     }
-    
+
     public Placeholder[] GetMinimun(GradienDescentAlgorithm algorithm = GradienDescentAlgorithm.GradientDescent)
     {
         if(algorithm == GradienDescentAlgorithm.GradientDescent)
@@ -67,93 +84,98 @@ public class GradientDescend
             return GradientDescentMomentum();
         throw new NotImplementedException($"Algorithm {algorithm} not implemented");
     }
-    
+
+    // Placeholders that already carry a value are treated as fixed inputs; the rest are
+    // randomly initialized and optimized. One tape pass per epoch yields every partial
+    // derivative at once.
     private Placeholder[] GradientDescentRaw()
     {
-        var derivative = new Derivative(_function);
+        GradientTape tape = new GradientTape(_function);
+        Placeholder[] parameters = _function.Params;
         HashSet<string> identifierAsConstant = new HashSet<string>();
-        Dictionary<string, Placeholder> arguments = _function
-            .Params
-            .ToDictionary(x => x.Identifier, x =>
+        foreach (Placeholder placeholder in parameters)
+        {
+            if (placeholder.Scalar != null)
             {
-                if (x.Scalar != null)
-                {
-                    identifierAsConstant.Add(x.Identifier);
-                }
-                else
-                {
-                    x.Scalar = (decimal)Random.Shared.NextDouble() + 1e-10m;
-                }
-                return x;
-            });
+                identifierAsConstant.Add(placeholder.Identifier);
+            }
+            else
+            {
+                placeholder.Scalar = Scalar.Create(Random.Shared.NextDouble() + 1e-10);
+            }
+        }
         for (int i = 0; i < Epochs; i++)
         {
-            decimal maxDerivative = decimal.MinValue;
-            foreach (Placeholder arg in _function.Params)
+            tape.Compute();
+            double maxDerivative = 0;
+            foreach (Placeholder arg in parameters)
             {
                 if (identifierAsConstant.Contains(arg.Identifier))
                 {
                     continue;
                 }
-                var df = derivative.Derive(arg);
-                var gradientArg = df.Evaluate().Value;
-                arguments[arg.Identifier].Scalar -= gradientArg * _learningRate;
-                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", i, gradientArg, arg.Identifier, arg.Scalar.Value);
+                double gradientArg = tape.Gradient(arg);
+                arg.Scalar = Scalar.Create(arg.Scalar.Value.Value - gradientArg * _learningRate);
+                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", i, gradientArg, arg.Identifier, arg.Scalar.Value.Value);
                 maxDerivative = Math.Max(maxDerivative, Math.Abs(gradientArg));
             }
-            if (Math.Abs(maxDerivative) < Threshold)
+            if (maxDerivative < Threshold)
             {
                 break;
             }
         }
-        return arguments.Select(x => x.Value).ToArray();
+        return parameters;
     }
 
     private Placeholder[] GradientDescentMomentum()
     {
-        var derivative = new Derivative(_function);
+        GradientTape tape = new GradientTape(_function);
+        Placeholder[] parameters = _function.Params;
         HashSet<string> identifierAsConstant = new HashSet<string>();
-        Dictionary<string, Placeholder> arguments = _function
-            .Params
-            .ToDictionary(x => x.Identifier, x =>
+        foreach (Placeholder placeholder in parameters)
+        {
+            if (placeholder.Scalar != null)
             {
-                if (x.Scalar != null)
-                {
-                    identifierAsConstant.Add(x.Identifier);
-                }
-                else
-                {
-                    x.Scalar = (decimal)Random.Shared.NextDouble() + 1e-10m;
-                }
-                return x;
-            });
-        Dictionary<string, decimal> velocities = arguments.ToDictionary(x => x.Key, x => Threshold);
+                identifierAsConstant.Add(placeholder.Identifier);
+            }
+            else
+            {
+                placeholder.Scalar = Scalar.Create(Random.Shared.NextDouble() + 1e-10);
+            }
+        }
+        Dictionary<string, double> velocities = parameters.ToDictionary(x => x.Identifier, _ => Threshold);
         for (int i = 0; i < Epochs; i++)
         {
-            foreach (Placeholder arg in _function.Params)
+            tape.Compute();
+            double maxDerivative = 0;
+            foreach (Placeholder arg in parameters)
             {
                 if (identifierAsConstant.Contains(arg.Identifier))
                 {
                     continue;
                 }
-                Function df = derivative.Derive(arg);
-                var gradientArg = df.Evaluate().Value;
-                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, argument={Argument}", i, gradientArg, arguments[arg.Identifier]);
+                double gradientArg = tape.Gradient(arg);
+                _logger?.Debug("Epoch {Epoch}: gradient={Gradient}, identifier={Identifier}, value={Value}", i, gradientArg, arg.Identifier, arg.Scalar.Value.Value);
+                maxDerivative = Math.Max(maxDerivative, Math.Abs(gradientArg));
                 if (Math.Abs(gradientArg) < Threshold)
                 {
                     break;
                 }
-                if (Math.Abs(velocities[arg.Identifier]) < Threshold * 1e-5m)
+                if (Math.Abs(velocities[arg.Identifier]) < Threshold * 1e-5)
                 {
                     break;
                 }
                 velocities[arg.Identifier] = _frictionVelocity * velocities[arg.Identifier] + gradientArg * _learningRate;
-                arguments[arg.Identifier].Scalar -= velocities[arg.Identifier];
+                arg.Scalar = Scalar.Create(arg.Scalar.Value.Value - velocities[arg.Identifier]);
+            }
+            if (maxDerivative < Threshold)
+            {
+                break;
             }
         }
-        return arguments.Select(x => x.Value).ToArray();
+        return parameters;
     }
-    
+
     public enum GradienDescentAlgorithm
     {
         GradientDescent,
@@ -163,10 +185,10 @@ public class GradientDescend
 
 public class TrainingEntry
 {
-    public decimal DependentVariable { get; set; }
+    public double DependentVariable { get; set; }
     public (Placeholder, Scalar)[] IndependentVariables { get; set; }
 
-    public static TrainingEntry Create(decimal dependentVariable, (Placeholder, Scalar)[] dependentVariables)
+    public static TrainingEntry Create(double dependentVariable, (Placeholder, Scalar)[] dependentVariables)
     {
         return new TrainingEntry
         {
@@ -179,7 +201,9 @@ public class TrainingEntry
 public class TrainingData
 {
     public List<TrainingEntry> Entries { get; private set; } = new List<TrainingEntry>();
-    HashSet<Placeholder> _placeholders = new HashSet<Placeholder>();
+    // Reference equality on purpose: Placeholder is a record whose value-based hash includes
+    // the mutable Scalar, so a value-hashed set would corrupt as training mutates values.
+    private readonly HashSet<Placeholder> _placeholders = new HashSet<Placeholder>(ReferenceEqualityComparer.Instance);
     public static TrainingData Create()
     {
         return new();

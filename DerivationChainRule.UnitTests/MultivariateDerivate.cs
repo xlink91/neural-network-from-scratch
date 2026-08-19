@@ -48,10 +48,10 @@ public class MultivariateDerivate
             ?? Placeholder.Create(differentiateWith);
         Function derivative = new Derivative(function).Derive(target);
 
-        Assert.Equal((decimal)expected, derivative.Evaluate().Value);
+        Assert.Equal(expected, derivative.Evaluate().Value, 9);
     }
 
-    private static void SetIfPresent(Function function, string identifier, decimal value)
+    private static void SetIfPresent(Function function, string identifier, double value)
     {
         var placeholder = function.Params.FirstOrDefault(p => p.Identifier == identifier);
         if (placeholder != null)

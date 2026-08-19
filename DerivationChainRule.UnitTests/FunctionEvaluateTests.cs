@@ -17,6 +17,17 @@ public class FunctionEvaluateTests
         Assert.Contains("x", exception.Message);
     }
 
+    // Evaluating with a parameter that was never given a value must fail loudly and name the
+    // parameter, instead of silently propagating a missing value.
+    [Fact]
+    public void Evaluate_UnsetPlaceholder_ThrowsDescriptiveException()
+    {
+        var y = Function.Create(Placeholder.Create("w")) + Function.Create(Scalar.One);
+
+        var exception = Assert.Throws<Exception>(() => y.Evaluate());
+        Assert.Contains("w", exception.Message);
+    }
+
     // Regression test for the MathUtil.ExpToFunction fix: a repeated variable parsed from a
     // string must resolve to a single shared Placeholder, so setting it via Params affects
     // every occurrence in the tree.
@@ -28,8 +39,8 @@ public class FunctionEvaluateTests
         var xParam = Assert.Single(function.Params);
         Assert.Equal("x", xParam.Identifier);
 
-        xParam.Scalar = Scalar.Create(4m);
+        xParam.Scalar = Scalar.Create(4);
 
-        Assert.Equal(16m, function.Evaluate().Value);
+        Assert.Equal(16, function.Evaluate().Value);
     }
 }

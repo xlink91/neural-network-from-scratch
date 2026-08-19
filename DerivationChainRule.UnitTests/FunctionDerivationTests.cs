@@ -73,9 +73,9 @@ public class FunctionDerivationTests
         for (int xx = 0; xx < 10; xx++)
         {
             xPlaceholder.Scalar = Scalar.Create(xx);
-            var expected = (decimal)(Math.Cos(2 * xx) * 2);
+            var expected = Math.Cos(2 * xx) * 2;
             var actual = df.Evaluate().Value;
-            Assert.True(Math.Abs(expected - actual) < 0.0001m, $"Expected {expected}, got {actual}");
+            Assert.True(Math.Abs(expected - actual) < 0.0001, $"Expected {expected}, got {actual}");
         }
     }
 
@@ -92,9 +92,9 @@ public class FunctionDerivationTests
         for (int xx = 0; xx < 5; xx++)
         {
             xPlaceholder.Scalar = Scalar.Create(xx);
-            var expected = (decimal)(Math.Exp(3 * xx) * 3);
+            var expected = Math.Exp(3 * xx) * 3;
             var actual = df.Evaluate().Value;
-            Assert.True(Math.Abs(expected - actual) < 0.001m, $"Expected {expected}, got {actual}");
+            Assert.True(Math.Abs(expected - actual) < 0.001, $"Expected {expected}, got {actual}");
         }
     }
 
@@ -111,9 +111,9 @@ public class FunctionDerivationTests
         for (int xx = 0; xx < 10; xx++)
         {
             xPlaceholder.Scalar = Scalar.Create(xx);
-            var expected = 1m / (xx + 1);
+            var expected = 1.0 / (xx + 1);
             var actual = df.Evaluate().Value;
-            Assert.True(Math.Abs(expected - actual) < 0.0001m, $"Expected {expected}, got {actual}");
+            Assert.True(Math.Abs(expected - actual) < 0.0001, $"Expected {expected}, got {actual}");
         }
     }
 
@@ -130,9 +130,9 @@ public class FunctionDerivationTests
         for (int xx = 0; xx < 5; xx++)
         {
             xPlaceholder.Scalar = Scalar.Create(xx);
-            var expected = (decimal)(-Math.Sin(4 * xx) * 4);
+            var expected = -Math.Sin(4 * xx) * 4;
             var actual = df.Evaluate().Value;
-            Assert.True(Math.Abs(expected - actual) < 0.0001m, $"Expected {expected}, got {actual}");
+            Assert.True(Math.Abs(expected - actual) < 0.0001, $"Expected {expected}, got {actual}");
         }
     }
 }
