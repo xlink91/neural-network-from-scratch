@@ -100,6 +100,33 @@ public class MathUtilFunctionTranslationTests
         Assert.Throws<FormatException>(() => MathUtil.Translate("2x"));
     }
 
+    [Fact]
+    public void Translate_Tanh_EvaluatesCorrectly()
+    {
+        AssertValue("tanh(x)", Math.Tanh(0.5), ("x", 0.5));
+    }
+
+    // A variable inside a tanh call and the same variable outside it must share one
+    // placeholder, so the function has a single "x" parameter.
+    [Fact]
+    public void Translate_TanhArgument_SharesPlaceholderWithOutside()
+    {
+        Function function = MathUtil.Translate("tanh(x)+x");
+
+        var xParam = Assert.Single(function.Params);
+        xParam.Scalar = Scalar.Create(2);
+        Assert.Equal(Math.Tanh(2) + 2, function.Evaluate().Value, 9);
+    }
+
+    // The neuron shape from the training tests: spaces and alphanumeric identifiers.
+    [Fact]
+    public void Translate_TanhNeuron_EvaluatesCorrectly()
+    {
+        AssertValue("tanh(x1*w1 + x2*w2 + b)",
+            Math.Tanh(0.5 * 0.8 + -1.5 * 0.3 + 0.1),
+            ("x1", 0.5), ("w1", 0.8), ("x2", -1.5), ("w2", 0.3), ("b", 0.1));
+    }
+
     private static void AssertValue(string input, double expected, params (string Name, double Value)[] variables)
     {
         Function function = MathUtil.Translate(input);

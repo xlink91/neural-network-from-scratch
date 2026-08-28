@@ -24,7 +24,7 @@ public class GradientDescend
     // loss tree and its gradient tape are built ONCE for the whole run; substituting a
     // training entry is just assigning placeholder values — no tree building or
     // re-differentiation ever happens inside the loops.
-    public Placeholder[] Train(TrainingData data)
+    public Placeholder[]Train(TrainingData data)
     {
         Placeholder target = Placeholder.Create("__target");
         Function error = Function.Create(target) - _function;

@@ -32,6 +32,7 @@ public class Derivative
             case Function.Op.Cos:
             case Function.Op.Exp:
             case Function.Op.Ln:
+            case Function.Op.Tanh:
                 return DeriveUnary(function, placeholder);
             default:
                 throw new Exception("Unknown operator: " + function.Operator);
@@ -47,6 +48,7 @@ public class Derivative
             Function.Op.Cos => (Function.Create(Scalar.Zero) - Function.Sin(function.Left)) * Derive(function.Left, placeholder),
             Function.Op.Exp => Function.Exp(function.Left) * Derive(function.Left, placeholder),
             Function.Op.Ln => Derive(function.Left, placeholder) / function.Left,
+            Function.Op.Tanh => (Function.Create(Scalar.One) - Function.Tanh(function.Left) * Function.Tanh(function.Left)) * Derive(function.Left, placeholder),
             _ => throw new Exception("Expected unary operator, received " + function.Operator)
         };
     }

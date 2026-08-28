@@ -90,6 +90,7 @@ public sealed class GradientTape
                 Function.Op.Cos => Math.Cos(_values[_leftIndex[i]]),
                 Function.Op.Exp => Math.Exp(_values[_leftIndex[i]]),
                 Function.Op.Ln => Math.Log(_values[_leftIndex[i]]),
+                Function.Op.Tanh => Math.Tanh(_values[_leftIndex[i]]),
                 _ => throw new Exception("Invalid operator")
             };
         }
@@ -133,6 +134,10 @@ public sealed class GradientTape
                     break;
                 case Function.Op.Ln:
                     _adjoints[_leftIndex[i]] += adjoint / _values[_leftIndex[i]];
+                    break;
+                case Function.Op.Tanh:
+                    // value = tanh(L), and tanh'(L) = 1 - tanh(L)^2 = 1 - value^2
+                    _adjoints[_leftIndex[i]] += adjoint * (1 - _values[i] * _values[i]);
                     break;
             }
         }

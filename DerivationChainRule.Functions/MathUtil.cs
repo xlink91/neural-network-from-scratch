@@ -24,6 +24,15 @@ public static class MathUtil
             }
             return Function.Create(placeholder);
         }
+        if (exp is UnaryExp unaryExp)
+        {
+            Function inner = ExpToFunction(unaryExp.Inner, placeholders);
+            return unaryExp.Name switch
+            {
+                "tanh" => Function.Tanh(inner),
+                _ => throw new NotImplementedException()
+            };
+        }
         if (exp is BinaryExp binaryExp)
         {
             Function left = ExpToFunction(binaryExp.Left, placeholders);
@@ -41,6 +50,7 @@ public static class MathUtil
     }
     public static Exp ToExp(this string expStr)
     {
+        expStr = string.Concat(expStr.Where(c => !char.IsWhiteSpace(c)));
         string number = string.Empty;
         string variable = string.Empty;
         Stack<Exp> st = new Stack<Exp>();
@@ -58,14 +68,24 @@ public static class MathUtil
                 st.Push(new ScalarExp(number));
                 number = string.Empty;
             }
-            while (idx < expStr.Length && char.IsLetter(expStr[idx]))
+            if (idx < expStr.Length && char.IsLetter(expStr[idx]))
             {
-                variable += expStr[idx];
-                ++idx;
+                while (idx < expStr.Length && char.IsLetterOrDigit(expStr[idx]))
+                {
+                    variable += expStr[idx];
+                    ++idx;
+                }
             }
             if (!string.IsNullOrEmpty(variable))
             {
-                st.Push(new VariableExp(variable));
+                if (variable == "tanh" && idx < expStr.Length && expStr[idx] == '(')
+                {
+                    st.Push(new UnaryExp(variable, ParseCallArgument(expStr, ref idx)));
+                }
+                else
+                {
+                    st.Push(new VariableExp(variable));
+                }
                 variable = string.Empty;
             }
             if (idx < expStr.Length && !char.IsLetterOrDigit(expStr[idx]))
@@ -101,6 +121,41 @@ public static class MathUtil
             }
         }
         return TransformOperationPriority(st.Pop());
+    }
+
+    // idx points at the '(' of a call like tanh(...); extracts the balanced argument,
+    // parses it recursively, and leaves idx just past the closing ')'.
+    private static Exp ParseCallArgument(string expStr, ref int idx)
+    {
+        int depth = 0;
+        int end = idx;
+        while (end < expStr.Length)
+        {
+            if (expStr[end] == '(')
+            {
+                ++depth;
+            }
+            else if (expStr[end] == ')')
+            {
+                --depth;
+                if (depth == 0)
+                {
+                    break;
+                }
+            }
+            ++end;
+        }
+        if (end == expStr.Length)
+        {
+            throw new FormatException();
+        }
+        string argument = expStr.Substring(idx + 1, end - idx - 1);
+        if (argument.Length == 0)
+        {
+            throw new FormatException();
+        }
+        idx = end + 1;
+        return argument.ToExp();
     }
     private static Exp TransformOperationPriority(this Exp exp)
     {
@@ -178,6 +233,23 @@ public static class MathUtil
         public override string ToString()
         {
             return string.Format("{0}", Identifier);
+        }
+    }
+    public class UnaryExp : Exp
+    {
+        public string Name { get; set; }
+        public Exp Inner { get; set; }
+
+        public UnaryExp(string name, Exp inner) : base(ExpType.UNARY)
+        {
+            Name = name;
+            Inner = inner;
+        }
+
+        public override string ToString()
+        {
+            // A BinaryExp already prints its own parentheses, so don't double them.
+            return Inner is BinaryExp ? $"{Name}{Inner}" : $"{Name}({Inner})";
         }
     }
     public class BinaryExp : Exp

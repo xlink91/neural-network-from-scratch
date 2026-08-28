@@ -118,6 +118,26 @@ public class FunctionDerivationTests
     }
 
     [Fact]
+    public void Derive_Tanh_Function_Uses_Chain_Rule()
+    {
+        // g(x) = 2x, f(x) = tanh(g(x)); f'(x) = (1 - tanh(2x)^2) * 2
+        var xPlaceholder = Placeholder.Create("x");
+        Function x = Function.Create(xPlaceholder);
+        Function g = x * Function.Create(Scalar.Create(2));
+        Function f = Function.Tanh(g);
+        Function df = GetDerivative(f, xPlaceholder);
+
+        for (int xx = -5; xx < 5; xx++)
+        {
+            xPlaceholder.Scalar = Scalar.Create(xx);
+            var tanh = Math.Tanh(2 * xx);
+            var expected = (1 - tanh * tanh) * 2;
+            var actual = df.Evaluate().Value;
+            Assert.True(Math.Abs(expected - actual) < 0.0001, $"Expected {expected}, got {actual}");
+        }
+    }
+
+    [Fact]
     public void Derive_Cos_Function_Uses_Chain_Rule()
     {
         // g(x) = 4x, f(x) = cos(g(x)); f'(x) = -sin(4x) * 4

@@ -17,6 +17,9 @@ public record Function
             return _parameters = _parameters ?? GetParams();
         }
     }
+    public static Function W => Create(Placeholder.W);
+    public static Function B => Create(Placeholder.B);
+    public static Function X => Create(Placeholder.X);
     public Scalar Scalar { get; private set; }
     protected Function(Op op, Function left, Function right)
     {
@@ -63,6 +66,10 @@ public record Function
     {
         return new Function(Op.Ln, inner);
     }
+    public static Function Tanh(Function inner)
+    {
+        return new Function(Op.Tanh, inner);
+    }
     public Scalar Evaluate()
     {
         ThrowIfDuplicateParameters();
@@ -86,6 +93,7 @@ public record Function
             Op.Cos => Scalar.Cos(Left.EvaluateCore()),
             Op.Exp => Scalar.Exp(Left.EvaluateCore()),
             Op.Ln => Scalar.Ln(Left.EvaluateCore()),
+            Op.Tanh => Scalar.Tanh(Left.EvaluateCore()),
             _ => throw new Exception("Invalid operator")
         };
     }
@@ -143,7 +151,8 @@ public record Function
         Sin,
         Cos,
         Exp,
-        Ln
+        Ln,
+        Tanh
     }
     public override string ToString()
     {
@@ -190,6 +199,10 @@ public record Function
         if (function.Operator == Op.Ln)
         {
             return "ln(" + FunctionToString(function.Left) + ")";
+        }
+        if (function.Operator == Op.Tanh)
+        {
+            return "tanh(" + FunctionToString(function.Left) + ")";
         }
         throw new Exception("Invalid operator");
     }
@@ -277,12 +290,25 @@ public readonly record struct Scalar(double Value)
     {
         return new Scalar(Math.Log(s.Value));
     }
+    public static Scalar Tanh(Scalar s)
+    {
+        return new Scalar(Math.Tanh(s.Value));
+    }
 }
 
 public sealed record Placeholder
 {
     public string Identifier { get; private set; }
     public Scalar? Scalar { get; set; }
+    private static readonly object _lock = new object();
+    private static int _idx = 0;
+
+    // Auto-minted parameters get unique identifiers (w_1, x_2, ...) so a network can create
+    // many independent weights/inputs/biases; explicitly-named placeholders keep their exact
+    // identifier so lookups by name (Params, parsed variables) still work.
+    public static Placeholder W => CreateUnique("w");
+    public static Placeholder X => CreateUnique("x");
+    public static Placeholder B => CreateUnique("b");
 
     private Placeholder(string identifier)
     {
@@ -291,5 +317,12 @@ public sealed record Placeholder
     public  static Placeholder Create(string identifier)
     {
         return new Placeholder(identifier);
+    }
+    private static Placeholder CreateUnique(string prefix)
+    {
+        lock (_lock)
+        {
+            return new Placeholder(string.Format("{0}_{1}", prefix, ++_idx));
+        }
     }
 }

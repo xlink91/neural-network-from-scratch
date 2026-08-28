@@ -180,6 +180,64 @@ public class MathUtilExpressionBuilderTests
         });
     }
 
+    [Fact]
+    public void ToExp_TanhOfVariable_BuildsUnaryExp()
+    {
+        AssertToExp("tanh(x)", "tanh(x)");
+    }
+
+    // The call argument is parsed as a full expression with normal precedence rules.
+    [Fact]
+    public void ToExp_TanhOfExpression_ParsesArgumentWithPrecedence()
+    {
+        AssertToExp("tanh(2*x+1)", "tanh((2*x)+1)");
+    }
+
+    [Fact]
+    public void ToExp_NestedTanh_Parses()
+    {
+        AssertToExp("tanh(tanh(x))", "tanh(tanh(x))");
+    }
+
+    // tanh(...) is an atomic operand: it binds tighter than any binary operator around it.
+    [Fact]
+    public void ToExp_TanhInsideArithmetic_IsAtomicOperand()
+    {
+        AssertToExp("2*tanh(x)+1", "((2*tanh(x))+1)");
+    }
+
+    // Whitespace is ignored and identifiers may contain trailing digits (x1, w2, ...).
+    [Fact]
+    public void ToExp_TanhNeuron_WithSpacesAndAlphanumericIdentifiers_Parses()
+    {
+        AssertToExp("tanh(x1*w1 + x2*w2 + b)", "tanh(((x1*w1)+(x2*w2))+b)");
+    }
+
+    [Fact]
+    public void ToExp_AlphanumericIdentifiers_ParseAsSingleVariables()
+    {
+        AssertToExp("x1+x2", "(x1+x2)");
+    }
+
+    // "tanh" not followed by "(" is an ordinary variable name, not a function call.
+    [Fact]
+    public void ToExp_TanhWithoutParens_IsAVariable()
+    {
+        AssertToExp("tanh+1", "(tanh+1)");
+    }
+
+    [Fact]
+    public void ToExp_TanhWithUnclosedParen_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => "tanh(x".ToExp());
+    }
+
+    [Fact]
+    public void ToExp_TanhWithEmptyArgument_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => "tanh()".ToExp());
+    }
+
     private static void AssertToExp(string input, string expected)
     {
         Assert.Equal(expected, input.ToExp().ToString());

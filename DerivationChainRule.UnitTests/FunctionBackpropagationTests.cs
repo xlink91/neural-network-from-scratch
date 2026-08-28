@@ -57,6 +57,26 @@ public class FunctionBackpropagationTests
         }
     }
 
+    // tanh is the classic neural-network activation; f = tanh(w*x + d) is one neuron.
+    [Fact]
+    public void Backpropagate_TanhNeuron_MatchesSymbolicDerivative()
+    {
+        Function inner = MathUtil.Translate("w*x+d");
+        Function neuron = Function.Tanh(inner);
+        SetIfPresent(neuron, "w", 0.7);
+        SetIfPresent(neuron, "x", 1.3);
+        SetIfPresent(neuron, "d", -0.2);
+
+        (double value, Dictionary<Placeholder, double> gradients) = neuron.Backpropagate();
+
+        Assert.Equal(neuron.Evaluate().Value, value, 9);
+        foreach (Placeholder parameter in neuron.Params)
+        {
+            double symbolic = new Derivative(neuron).Derive(parameter).Evaluate().Value;
+            Assert.Equal(symbolic, gradients[parameter], 9);
+        }
+    }
+
     [Fact]
     public void GradientTape_Reused_RecomputesGradientsAtNewValues()
     {
